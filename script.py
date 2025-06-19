@@ -58,11 +58,13 @@ def filter_list(data, column, operator, value):
                 filtered_data.append(row)
     return filtered_data
 
+
 def aggregate_data(data, agg_type, agg_column):
-    if not data or not agg_type or agg_column:
+    if not data or not agg_type or not agg_column:
         return None
-    if is_numeric_column(data, agg_column):
-        return "Агрегация только для числовых колонок"
+
+    if not is_numeric_column(data, agg_column):
+        return "Aggregation is only possible for numeric columns."
 
     values = []
     for row in data:
@@ -73,19 +75,20 @@ def aggregate_data(data, agg_type, agg_column):
         total = 0
         for value in values:
             total += value
-        return total/len(values)
+        return total / len(values)
     elif agg_type == "min":
-        min_value = values[0]
+        smallest = values[0]
         for value in values:
-            if value < min_value:
-                min_value = value
-        return min_value
+            if value < smallest:
+                smallest = value
+        return smallest
     elif agg_type == "max":
-        max_value = values[0]
+        largest = values[0]
         for value in values:
-            if value > max_value:
-                max_value = value
-        return max_value
+            if value > largest:
+                largest = value
+        return largest
+    return None
 
 def print_result(data, agg_result, agg_type, agg_column):
     if data:
@@ -96,6 +99,7 @@ def print_result(data, agg_result, agg_type, agg_column):
             print(agg_result)
         else:
             print(f"{agg_type.capitalize()}{agg_column}:{agg_result}")
+    return None
 
 def main():
     args = arg_cmdline()
@@ -103,7 +107,7 @@ def main():
     filtered_data = filter_list(data, args.filter_col, args.op, args.val)
     agg_result = aggregate_data(filtered_data, args.agg, args.agg_col)
     print_result(filtered_data, agg_result, args.agg, args.agg_col)
-
+    return None
 if __name__ == "__main__":
     main()
 
