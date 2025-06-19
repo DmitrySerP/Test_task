@@ -1,6 +1,7 @@
 import pytest
 import csv
-from script import read_csv, filter_list, aggregate_data, print_result
+import subprocess
+from script import read_csv, filter_data, aggregate_data, print_result, parse_where, parse_aggregate
 
 @pytest.fixture
 def sample_csv(tmp_path):
@@ -27,35 +28,46 @@ def test_read_csv(sample_csv):
     assert data[0]["name"] == "iphone 15 pro"
     assert data[2]["price"] == "199"
 
+def test_parse_where(sample_csv):
+    assert parse_where("price>500") == ("price", ">", "500")
+    assert parse_where("brand=xiaomi") == ("brand", "=", "xiaomi")
+    assert parse_where(None) == (None, None, None)
+
+def test_parse_aggregate(sample_csv):
+    assert parse_aggregate("avg=rating") == ("avg", "rating")
+    assert parse_aggregate("max=price") == ("max", "price")
+    assert parse_aggregate(None) == (None, None)
+
+
 def test_filter_numeric(sample_csv):
     data = read_csv(sample_csv)
-    filtered = filter_list(data, "price", ">", "500")
+    filtered = filter_data(data, "price", ">", "500")
     assert len(filtered) == 2
     assert filtered[0]["name"] == "iphone 15 pro"
     assert filtered[1]["name"] == "galaxy s23 ultra"
 
 def test_filter_text(sample_csv):
     data = read_csv(sample_csv)
-    filtered = filter_list(data, "brand", "=", "xiaomi")
+    filtered = filter_data(data, "brand", "=", "xiaomi")
     assert len(filtered) == 1
     assert filtered[0]["name"] == "redmi note 12"
 
 def test_filter_less(sample_csv):
     data = read_csv(sample_csv)
-    filtered = filter_list(data, "price", "<", "1000")
+    filtered = filter_data(data, "price", "<", "1000")
     assert len(filtered) == 2
     assert filtered[0]["name"] == "iphone 15 pro"
     assert filtered[1]["name"] == "redmi note 12"
 
 def test_filter_empty(sample_csv):
     data = read_csv(sample_csv)
-    filtered = filter_list(data, None, None, None)
+    filtered = filter_data(data, None, None, None)
     assert len(filtered) == 3
 
 def test_aggregate_avg(sample_csv):
     data = read_csv(sample_csv)
     result = aggregate_data(data, "avg", "rating")
-    assert abs(result - 4.76666666666667) < 0.0001
+    assert abs(result - 4.766667) < 0.0001
 
 def test_aggregate_min(sample_csv):
     data = read_csv(sample_csv)
@@ -77,11 +89,12 @@ def test_print_result(capsys, sample_csv):
     print_result(data, 4.766666666666667, "avg", "rating")
     captured = capsys.readouterr()
     assert "iphone 15 pro" in captured.out
-    assert "Avg rating: 4.76666666667" in captured.out
+    assert "Avg rating: 4.766667" in captured.out
 
-
-
-
-
-
-
+def test_main(sample_csv):
+    result = subprocess.run(
+        [r".venv\Scripts\python.exe", "script.py", "--file", sample_csv, "--where", "price>500", "--aggregate", "avg=rating"],
+        capture_output=True, text=True
+    )
+    print(result.stderr)
+    assert "iphone 15 pro" in result.stdout
