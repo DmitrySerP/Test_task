@@ -98,7 +98,7 @@ def print_result(data, agg_result, agg_type, agg_column):
         if isinstance(agg_result, str):
             print(agg_result)
         else:
-            print(f"{agg_type.capitalize()}{agg_column}:{agg_result}")
+            print(f"{agg_type.capitalize()} {agg_column}: {agg_result:.11f}")
     return None
 
 def main():
