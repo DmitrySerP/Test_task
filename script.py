@@ -5,12 +5,9 @@ from tabulate import tabulate
 
 def arg_cmdline():
     arg_cmd = argparse.ArgumentParser(description="Process CSV file")
-    arg_cmd.add_argument("file")
-    arg_cmd.add_argument("--filter-col")
-    arg_cmd.add_argument("--op", choices=["<", ">", "="])
-    arg_cmd.add_argument("--val")
-    arg_cmd.add_argument("--agg", choices=["avg", "min", "max"])
-    arg_cmd.add_argument("--agg-col")
+    arg_cmd.add_argument("--file", help="Путь к CSV-файлу")
+    arg_cmd.add_argument("--where", help="Условие фильтрации, например 'price<1000'")
+    arg_cmd.add_argument("--aggregate", help="Агрегация, например 'avg=rating'")
     return arg_cmd.parse_args()
 
 def read_csv(file_path):
@@ -24,14 +21,34 @@ def read_csv(file_path):
 def is_numeric_column(data, column):
     if not data:
         return False
-    value = data[0][column]
     try:
-        float(value)
+        float(data[0][column])
         return True
-    except ValueError:
+    except (ValueError, KeyError):
         return False
 
-def filter_list(data, column, operator, value):
+def parse_where(where):
+    if not where:
+        return None, None, None
+    for op in ["<", ">", "="]:
+        if op in where:
+            column, value = where.split(op)
+            return column.strip(), op, value.strip()
+    raise ValueError("Неверный формат where, используйте column<value, column>value или column=value")
+
+def parse_aggregate(aggregate):
+    if not aggregate:
+        return None, None
+    try:
+        function, column = aggregate.split("=")
+        if function not in ["avg", "min", "max"]:
+            raise ValueError("Неверный формат агрегации, используйте avg, min или max")
+        return function, column.strip()
+    except ValueError:
+        raise ValueError("Неверный формат агрегации, используйте function=column, например avg=rating")
+
+
+def filter_data(data, column, operator, value):
     if not column or not operator or not value:
         return data
     filtered_data = []
@@ -43,24 +60,25 @@ def filter_list(data, column, operator, value):
         filter_value = value
 
     for row in data:
-        cell_value = row[column]
-        if is_numeric:
-            cell_value = float(cell_value)
-
-        if operator == ">":
-            if cell_value >filter_value:
-                filtered_data.append(row)
-        if operator == "<":
-            if cell_value < filter_value:
-                filtered_data.append(row)
-        if operator == "=":
-            if cell_value == filter_value:
-                filtered_data.append(row)
+        try:
+            cell_value = row[column]
+            if is_numeric:
+                cell_value = float(cell_value)
+            if operator == ">":
+                if cell_value >filter_value:
+                    filtered_data.append(row)
+            if operator == "<":
+                if cell_value < filter_value:
+                    filtered_data.append(row)
+            if operator == "=":
+                if cell_value == filter_value:
+                    filtered_data.append(row)
+        except KeyError:
+            continue
     return filtered_data
 
-
-def aggregate_data(data, agg_type, agg_column):
-    if not data or not agg_type or not agg_column:
+def aggregate_data(data, agg_function, agg_column):
+    if not data or not agg_function or not agg_column:
         return None
 
     if not is_numeric_column(data, agg_column):
@@ -68,29 +86,25 @@ def aggregate_data(data, agg_type, agg_column):
 
     values = []
     for row in data:
-        value = float(row[agg_column])
-        values.append(value)
+        try:
+            value = float(row[agg_column])
+            values.append(value)
+        except KeyError:
+            continue
 
-    if agg_type == "avg":
-        total = 0
-        for value in values:
-            total += value
+    if not values:
+        return None
+
+    if agg_function == "avg":
+        total = sum(values)
         return total / len(values)
-    elif agg_type == "min":
-        smallest = values[0]
-        for value in values:
-            if value < smallest:
-                smallest = value
-        return smallest
-    elif agg_type == "max":
-        largest = values[0]
-        for value in values:
-            if value > largest:
-                largest = value
-        return largest
+    elif agg_function == "min":
+        return min(values)
+    elif agg_function == "max":
+        return max(values)
     return None
 
-def print_result(data, agg_result, agg_type, agg_column):
+def print_result(data, agg_result, agg_function, agg_column):
     if data:
         print(tabulate(data, headers="keys", tablefmt="pipe"))
 
@@ -98,16 +112,22 @@ def print_result(data, agg_result, agg_type, agg_column):
         if isinstance(agg_result, str):
             print(agg_result)
         else:
-            print(f"{agg_type.capitalize()} {agg_column}: {agg_result:.11f}")
+            print(f"{agg_function.capitalize()} {agg_column}: {agg_result:.6f}")
     return None
 
 def main():
     args = arg_cmdline()
-    data = read_csv(args.file)
-    filtered_data = filter_list(data, args.filter_col, args.op, args.val)
-    agg_result = aggregate_data(filtered_data, args.agg, args.agg_col)
-    print_result(filtered_data, agg_result, args.agg, args.agg_col)
+    try:
+        data = read_csv(args.file)
+        column, operator, value = parse_where(args.where)
+        filtered_data = filter_data(data, column, operator, value)
+        agg_function, agg_column = parse_aggregate(args.aggregate)
+        agg_result = aggregate_data(filtered_data, agg_function, agg_column)
+        print_result(filtered_data, agg_result, agg_function, agg_column)
+    except(FileNotFoundError, ValueError) as e:
+        print(f"Ошибка: {e}")
     return None
+
 if __name__ == "__main__":
     main()
 
