@@ -39,7 +39,9 @@ python script.py --file data.csv --where "price>500" --aggregate "avg=rating"
 ```bash
 pytest --cov=script test_script.py
 ```
-   
+## Пример запуска скрипта
+<image-card alt="Результат работы скрипта" src="exampleScript.png" ></image-card>
+
 
 
 
